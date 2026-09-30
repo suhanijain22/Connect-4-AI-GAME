@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Connect 4 AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  color: white;
+  text-align: center;
+}
+
+/* Start Screen */
+.start-screen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.start-screen h1 {
+  font-size: 50px;
+  margin-bottom: 30px;
+}
+
+.start-button-box {
+  background: rgba(0,0,0,0.5);
+  padding: 30px 50px;
+  border-radius: 15px;
+  border: 2px solid #00c6ff;
+}
+
+button {
+  padding: 12px 25px;
+  border: none;
+  border-radius: 6px;
+  background: #00c6ff;
+  font-weight: bold;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+button:hover { background: #00e6ff; }
+
+/* Game UI */
+.game { display: none; }
+
+.game-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin-top: 30px;
+}
+
+/* Board & Arrows */
+.board-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 30px;
+}
+
+.arrows {
+  display: grid;
+  grid-template-columns: repeat(7, 70px);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.arrow {
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.arrow:hover {
+  color: yellow;
+  transform: scale(1.2);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(7, 70px);
+  gap: 8px;
+  padding: 12px;
+  background: #0b1d3a;
+  border-radius: 10px;
+}
+
+.cell {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #0a0a0a;
+  cursor: pointer;
+}
+
+/* Player colors */
+.p1 { background: yellow; }
+.p2 { background: limegreen; }
+
+/* Sidebar */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Turn indicator */
+.turn {
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 10px 20px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 8px;
+  border: 1px solid #00c6ff;
+  width: 180px;
+  text-align: center;
+}
+
+/* Algorithm box */
+.algo-box {
+  margin-top: 10px;
+  padding: 15px;
+  width: 220px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 10px;
+  text-align: left;
+  font-size: 14px;
+  border: 1px solid #00c6ff;
+}
+
+/* Popup */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.popup {
+  background: white;
+  color: black;
+  padding: 25px;
+  border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- START SCREEN -->
+<div class="start-screen" id="startScreen">
+  <h1>🎯 CONNECT 4</h1>
+  <div class="start-button-box">
+    <button onclick="startGame()">Start Game</button>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div class="game" id="gameUI">
+  <div class="game-container">
+
+    <!-- Board Section -->
+    <div class="board-container">
+      <div class="arrows">
+        <div class="arrow" onclick="playerMove(0)">⬇</div>
+        <div class="arrow" onclick="playerMove(1)">⬇</div>
+        <div class="arrow" onclick="playerMove(2)">⬇</div>
+        <div class="arrow" onclick="playerMove(3)">⬇</div>
+        <div class="arrow" onclick="playerMove(4)">⬇</div>
+        <div class="arrow" onclick="playerMove(5)">⬇</div>
+        <div class="arrow" onclick="playerMove(6)">⬇</div>
+      </div>
+      <div class="board" id="board"></div>
+    </div>
+
+    <!-- Sidebar Section -->
+    <div class="sidebar">
+      <div class="turn" id="turn">Your Turn</div>
+      <div class="algo-box">
+        <b>⚙️ Algorithm Used</b><br><br>
+        <b>Minimax:</b><br>
+        AI checks all possible future moves and selects the best outcome assuming opponent plays optimally.<br><br>
+        <b>Alpha-Beta Pruning:</b><br>
+        Optimizes minimax by removing unnecessary branches, making AI faster and efficient.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- WIN POPUP -->
+<div class="overlay" id="overlay">
+  <div class="popup">
+    <h2 id="resultText"></h2>
+    <button onclick="location.reload()">Play Again</button>
+  </div>
+</div>
+
+<script>
+const ROWS = 6, COLS = 7;
+let board = [];
+let gameOver = false;
+
+function startGame() {
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameUI").style.display = "block";
+
+  board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+  gameOver = false;
+  render();
+}
+
+function render() {
+  const b = document.getElementById("board");
+  b.innerHTML = "";
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      let cell = document.createElement("div");
+      cell.className = "cell";
+      if (board[r][c] === 1) cell.classList.add("p1");
+      if (board[r][c] === 2) cell.classList.add("p2");
+      cell.onclick = () => playerMove(c);
+      b.appendChild(cell);
+    }
+  }
+}
+
+// Add delay function
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function playerMove(col) {
+  if (gameOver || board[0][col] !== 0) return;
+
+  // Player move
+  drop(board, col, 1);
+  render();
+  if (checkWin(board, 1)) return showResult("🎉 You Win!");
+  if (validCols(board).length === 0) return showResult("Draw!");
+
+  document.getElementById("turn").textContent = "AI Thinking...";
+
+  // Small delay before AI move
+  await sleep(800);
+
+  let aiCol = aiMove(board);
+  if (aiCol !== null) {
+    drop(board, aiCol, 2);
+    render();
+    if (checkWin(board, 2)) return showResult("🤖 AI Wins!");
+  }
+
+  document.getElementById("turn").textContent = "Your Turn";
+}
+
+// ─────────────────────────────
+// SUPPORTING FUNCTIONS (from Flask backend logic)
+// ─────────────────────────────
+function drop(board, col, piece){
+  for(let r=ROWS-1; r>=0; r--){
+    if(board[r][col]===0){
+      board[r][col]=piece;
+      break;
+    }
+  }
+}
+
+function checkWin(board,p){
+  // horizontal
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS-3;c++){
+      if(board[r][c]===p && board[r][c+1]===p && board[r][c+2]===p && board[r][c+3]===p) return true;
+    }
+  }
+  // vertical
+  for(let r=0;r<ROWS-3;r++){
+    for(let c=0;c<COLS;c++){
+      if(board[r][c]===p && board[r+1][c]===p && board[r+2][c]===p && board[r+3][c]===p) return true;
+    }
+  }
+  // diagonal /
+  for(let r=3;r<ROWS;r++){
+    for(let c=0;c<COLS-3;c++){
+      if(board[r][c]===p && board[r-1][c+1]===p && board[r-2][c+2]===p && board[r-3][c+3]===p) return true;
+    }
+  }
+  // diagonal \
+  for(let r=0;r<ROWS-3;r++){
+    for(let c=0;c<COLS-3;c++){
+      if(board[r][c]===p && board[r+1][c+1]===p && board[r+2][c+2]===p && board[r+3][c+3]===p) return true;
+    }
+  }
+  return false;
+}
+
+function validCols(board){
+  let cols=[];
+  for(let c=0;c<COLS;c++){
+    if(board[0][c]===0) cols.push(c);
+  }
+  return cols;
+}
+
+function aiMove(board){
+  let valid=validCols(board);
+  if(valid.length===0) return null;
+
+  // Try win
+  for(let c of valid){
+    let temp=board.map(r=>r.slice());
+    drop(temp,c,2);
+    if(checkWin(temp,2)) return c;
+  }
+  // Block player
+  for(let c of valid){
+    let temp=board.map(r=>r.slice());
+    drop(temp,c,1);
+    if(checkWin(temp,1)) return c;
+  }
+  // Prefer center
+  if(valid.includes(3)) return 3;
+
+  // Random
+  return valid[Math.floor(Math.random()*valid.length)];
+}
+
+function showResult(text){
+  gameOver=true;
+  document.getElementById("resultText").textContent=text;
+  document.getElementById("overlay").style.display="flex";
+}
+</script>
+
+</body>
+</html>
